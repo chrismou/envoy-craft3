@@ -8,6 +8,6 @@ This is a fairly simple example for setting up CI auto deployments using Laravel
 
 ## Setup
 - Copy the files in this repo to the root of your craft project
-- Update the Envoy.config.php with real values, especially the repository and the a server array for each environment you want to autodeploy to
+- Update the Envoy.config.php with real values, especially the repository and a server array for each environment you want to autodeploy to
 - Push to one of your branches
 - Voila

@@ -1,0 +1,27 @@
+image: chrismou/laravel-envoy
+
+stages:
+  - deploy staging
+  - deploy production
+
+before_script:
+  - eval $(ssh-agent -s)
+  - echo "$SSH_PRIVATE_KEY" | ssh-add -
+  - mkdir -p ~/.ssh
+  - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+
+deploy:staging:
+  stage: deploy staging
+  script:
+    - envoy run deploy --site=staging --commit="$CI_COMMIT_SHA"
+  when: manual
+  only:
+    - staging
+
+deploy:prod:
+  stage: deploy production
+  script:
+    - envoy run deploy --site=production --commit="$CI_COMMIT_SHA"
+  when: manual
+  only:
+    - master
