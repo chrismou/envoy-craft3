@@ -1,9 +1,8 @@
 {{-- craft3 deployment --}}
 
-<?php
-// Include the config
-include 'Envoy.config.php';
+@include('Envoy.config.php')
 
+<?php
 // Check a couple of required params have been passed
 if (!isset($commit) || !$commit) {
     throw new Exception('Commit hash has not been provided');
@@ -14,7 +13,12 @@ if (!isset($site) || !isset($servers[$site])) {
 
 $server = $servers[$site]['servers'];
 $appDir = $servers[$site]['directory'];
+$appUrl = $servers[$site]['url'];
 
+$opcacheCommand = "<?php opcache_reset(); ?>";
+
+// Set some defaults
+$maxDeploymentsToKeep = (isset($maxDeploymentsToKeep) ? $maxDeploymentsToKeep : 10);
 ?>
 
 {{-- Set the servers for this deployment (specified in your Envoy.config.php --}}
@@ -27,7 +31,7 @@ $appDir = $servers[$site]['directory'];
     $deploymentDirectory = $releasesDir .'/'. $commit;
 @endsetup
 
-{{-- Specify which tasks will run --}}
+{{-- Specify which tasks will run and the order --}}
 @story('deploy')
     clone_repository
     update_symlinks
@@ -79,7 +83,7 @@ $appDir = $servers[$site]['directory'];
     ln -nfs {{ $deploymentDirectory }} {{ $appDir }}/current
 @endtask
 
-{{-- Any post deployment tasks. Add more or remove whatever you don't need --}}
+{{-- Any post deployment tasks --}}
 @task('post_deployment')
     echo "Run craft migrations, in case of a version jump"
     {{ $deploymentDirectory }}/craft migrate/all
@@ -89,12 +93,19 @@ $appDir = $servers[$site]['directory'];
         {{ $deploymentDirectory }}/craft project-config/sync
     @endif
 
-    @if (isset($litespeed) and $litespeed)
-        echo "Clear litespeed cache"
-        rm -rf {{ $appDir }}/../.lscache/*
+    @if (isset($opCache) and $opCache)
+        echo "Create an opcache flush file, call it via wget, then remove the file"
+        echo "{{ $opcacheCommand }}" > {{ $deploymentDirectory }}/web/flush_cache.php
+        wget {{ $appUrl }}/flush_cache.php
+        rm {{ $deploymentDirectory }}/web/flush_cache.php
     @endif
 
-    @if (isset($maxDeploymentsToKeep))
+    @if (isset($litespeed) and $litespeed)
+        echo "Clear litespeed cache"
+        rm -rf ~/.lscache/*
+    @endif
+
+    @if ($maxDeploymentsToKeep)
         echo "Delete all but the most recent {{ $maxDeploymentsToKeep }} deployments"
         cd {{ $releasesDir  }} && rm -rf `ls -t | awk 'NR>{{ $maxDeploymentsToKeep }}'`
     @endif
